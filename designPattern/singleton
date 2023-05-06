@@ -1,1 +1,11 @@
-
+class HungrySingleton {
+    private static HungrySingleton instance = new HungrySingleton();
+    private HungrySingleton(){
+        if (instance!=null){
+            throw new RuntimeException("singleton error");
+        }
+    }
+    public static HungrySingleton getInstance() {
+        return instance;
+    }
+}
