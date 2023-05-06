@@ -1,3 +1,5 @@
+
+```java
 class HungrySingleton {
     private static HungrySingleton instance = new HungrySingleton();
     private HungrySingleton(){
@@ -9,3 +11,4 @@ class HungrySingleton {
         return instance;
     }
 }
+```
