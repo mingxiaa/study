@@ -1,6 +1,10 @@
+单例设计模式
 
-```java
+懒汉式
 
+
+
+饿汉式
 class HungrySingleton {
     private static HungrySingleton instance = new HungrySingleton();
     private HungrySingleton(){
@@ -13,4 +17,7 @@ class HungrySingleton {
     }
 }
 
-```
+
+内部类
+
+
