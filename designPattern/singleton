@@ -5,6 +5,9 @@
 
 
 饿汉式
+
+```java
+
 class HungrySingleton {
     private static HungrySingleton instance = new HungrySingleton();
     private HungrySingleton(){
@@ -17,6 +20,7 @@ class HungrySingleton {
     }
 }
 
+```
 
 内部类
 
