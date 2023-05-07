@@ -1,23 +1,78 @@
 单例设计模式
-
+----------------------------------------
 懒汉式
-
-
-
+class LazySingleton {
+    private static LazySingleton instance;
+    private LazySingleton(){}
+    public static LazySingleton getInstance() {
+        if (instance == null){
+            instance = new LazySingleton();
+        }
+        return instance;
+    }
+}
+以多线程方式访问getInstance()时，会造成多例：
+    new Thread( ()-> {
+        LazySingleton instance = LazySingleton.getInstance();
+        System.out.println(instance);
+    }).start();
+    new Thread( ()-> {
+        LazySingleton instance = LazySingleton.getInstance();
+        System.out.println(instance);
+    }).start();
+所以要给实例化过程加锁，同时为了减少性能损失，不直接使用synchronized对getInstance()方法加锁：
+    public static LazySingleton getInstance() {
+        if (instance == null){
+            synchronized (LazySingleton.class){ //以代码块的方式加锁，并进行多次判断，以减少性能损失
+                if (instance == null){
+                    instance = new LazySingleton();
+                }
+            }
+        }
+        return instance;
+    }
+实际上，instance = new LazySingleton()的执行过程有以下三步：
+1、分配空间
+2、初始化
+3、引用赋值
+由于JIT或者CPU会进行指令重排序优化，第1步会先执行，但2/3步顺序可能会颠倒，就会导致引用赋值为null，最终造成空指针异常。
+java中使用volatile关键字，来防止相应的代码进行指令重排序：
+    private volatile static LazySingleton instance;
+----------------------------------------
 饿汉式
-
 class HungrySingleton {
     private static HungrySingleton instance = new HungrySingleton();
+    private HungrySingleton(){}
+    public static HungrySingleton getInstance() {
+        return instance;
+    }
+}
+当真正访问到相应的类(HungrySingleton)，即类加载时才会进行初始化，JVM会保证实例化的唯一性，所以饿汉式不需要进行加锁。
+当使用反射机制获取私有构造函数，并强制访问时，同样会造成多例：
+    Constructor<LazySingleton> declaredConstructor = LazySingleton.class.getDeclaredConstructor();
+    declaredConstructor.setAccessible(true);
+    LazySingleton lazySingleton = declaredConstructor.newInstance();
+    System.out.println(lazySingleton);
+    
+    LazySingleton instance = LazySingleton.getInstance();
+    System.out.println(instance);
+通过以下方式来防止这种情况发生：
     private HungrySingleton(){
         if (instance!=null){
             throw new RuntimeException("singleton error");
         }
     }
-    public static HungrySingleton getInstance() {
-        return instance;
+注意：懒汉式由于延迟加载的存在，无法通过该方式来防止反射机制造成多例。
+----------------------------------------
+静态内部类
+class InnerSingleton {
+    private static class Inner {
+        private static InnerSingleton instance = new InnerSingleton();
+    }
+    private InnerSingleton() {}
+    public static InnerSingleton getInstance(){
+        return Inner.instance;
     }
 }
-
-内部类
-
-
+只有访问到内部类(Inner)时，即执行return Inner.instance这段代码时，才会触发类加载机制进行instance实例化，而访问外部类(InnerSingleton)则不会(外部类加载时不会加载内部类)。
+所以这种方式也是一种延迟加载模式，同时这种静态内部类方式也能采用饿汉式中的方法，来防止反射机制造成多例。
