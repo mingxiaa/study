@@ -76,3 +76,32 @@ class InnerSingleton {
 }
 只有访问到内部类(Inner)时，即执行return Inner.instance这段代码时，才会触发类加载机制进行instance实例化，而访问外部类(InnerSingleton)则不会(外部类加载时不会加载内部类)。
 所以这种方式也是一种延迟加载模式，同时这种静态内部类方式也能采用饿汉式中的方法，来防止反射机制造成多例。
+若对象进行序列化存储，在反序列化过程中会造成多例：
+    InnerSingleton instance = InnerSingleton.getInstance();
+    ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("singletonSerializable"));
+    oos.writeObject(instance);
+    oos.close();
+    ObjectInputStream ois = new ObjectInputStream(new FileInputStream("singletonSerializable"));
+    InnerSingleton serialInstance = (InnerSingleton) ois.readObject();
+    ois.close();
+    System.out.println(instance==serialInstance);
+因此，添加一个readResolve()方法，使得在反序列化过程中，直接获取类中定义的单例实例：
+public class InnerSingleton implements Serializable {
+    static final long serialVersionUID = 999L;
+    private static class Inner {
+        private static InnerSingleton instance = new InnerSingleton();
+    }
+    private InnerSingleton() {}
+    public static InnerSingleton getInstance(){
+        return Inner.instance;
+    }
+    Object readResolve(){
+        return Inner.instance;
+    }
+}
+----------------------------------------
+枚举类型
+public enum EnumSingleton {
+    INSTANCE;
+}
+枚举类型本身是一个特殊的类，首行INSTANCE的值为枚举对象的实例，JVM会保证枚举对象的唯一性，在反序列化过程中不会造成多例，且枚举类型无法通过反射实例化。
