@@ -1,1 +1,37 @@
-简单工厂
+简单工厂并不是一种设计模式，只是将实例化过程进行了解耦：
+public class SimpleFactory {
+    static Product create(String name) {
+        if (name.equals("A")){
+            return new ProductA();
+        } else if (name.equals("B")) {
+            return new ProductB();
+        } else {
+            return null;
+        }
+    }
+}
+其缺点是当添加了新的实例化对象时，必须对工厂方法进行修改，而随着实例化对象的增加，工厂方法的代码会变得臃肿。
+----------------------------------------
+工厂方法模式
+这种设计模式将实例化过程进行了抽象，并通过子类的实现来决定实例化哪个类。
+public abstract class ProductFactory {
+    abstract Product createProduct();
+}
+public class ProductAFactory extends ProductFactory {
+    @Override
+    Product createProduct() {
+        return new ProductA();
+    }
+}
+public class ProductBFactory extends ProductFactory{
+    @Override
+    Product createProduct() {
+        return new ProductB();
+    }
+}
+当我们要创建某个对象时，调用工厂子类的方法：
+    ProductFactory factory = new ProductAFactory();
+    Product product = factory.createProduct();
+其优点是当添加了新的实例化对象时，只需要创建新的工厂子类即可。缺点是增加了一定的编译和运行负担，并使整个系统更加抽象，在引入其他技术时会增加难度。
+----------------------------------------
+
