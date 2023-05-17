@@ -34,4 +34,46 @@ public class ProductBFactory extends ProductFactory{
     Product product = factory.createProduct();
 其优点是当添加了新的实例化对象时，只需要创建新的工厂子类即可。缺点是增加了一定的编译和运行负担，并使整个系统更加抽象，在引入其他技术时会增加难度。
 ----------------------------------------
-
+抽象工厂模式
+当多个产品含有多个类似功能时，将其抽象为接口。比如，数据库套件含有连接、发送命令的功能：
+public interface Connect {
+    void connect();
+}
+public interface Command {
+    void command();
+}
+public interface DatabaseUtils {
+    Connect getConnect();
+    Command getCommand();
+}
+并由具体的数据库来实现这些接口：
+public class MysqlConnect implements Connect{
+    @Override
+    public void connect() {
+        System.out.println("Mysql connected!");
+    }
+}
+public class MysqlCommand implements Command{
+    @Override
+    public void command() {
+        System.out.println("Mysql command success!");
+    }
+}
+public class MysqlUtils implements DatabaseUtils{
+    @Override
+    public Connect getConnect() {
+        return new MysqlConnect();
+    }
+    @Override
+    public Command getCommand() {
+        return new MysqlCommand();
+    }
+}
+即使采用新的数据库套件，也可以按照同样的方式创建对应的类，比如Oracle等。具体使用时的代码：
+    DatabaseUtils databaseUtils = new MysqlUtils();
+    Connect connect = databaseUtils.getConnect();
+    connect.connect();
+    Command command = databaseUtils.getCommand();
+    command.command();
+----------------------------------------
+感想：这两种工厂模式更像是，接口设计之初的思维方式，将共性抽象成接口，而异性由具体的类来实现。
