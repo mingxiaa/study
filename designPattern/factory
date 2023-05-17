@@ -76,4 +76,4 @@ public class MysqlUtils implements DatabaseUtils{
     Command command = databaseUtils.getCommand();
     command.command();
 ----------------------------------------
-感想：这两种工厂模式更像是，接口设计之初的思维方式，将共性抽象成接口，而异性由具体的类来实现。
+感想：这两种工厂模式更像是，接口设计之初的思维方式，将共性抽象成接口，而个性由具体的类来实现。
