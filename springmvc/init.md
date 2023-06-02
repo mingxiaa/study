@@ -33,7 +33,7 @@ DispatcherServlet的initStrategies方法，将会对springmvc的各个组件进�
         this.initViewResolvers(context);
         this.initFlashMapManager(context);
     }
-```java
+```
 
 ----------------------------------------
 
