@@ -20,6 +20,7 @@ DispatcherServlet --> FrameworkServlet --> HttpServletBean --> HttpServlet --> G
 ---> class DispatcherServlet extends FrameworkServlet # void onRefresh(ApplicationContext context)
     ---> void initStrategies(ApplicationContext context)
 
+```java
 DispatcherServlet的initStrategies方法，将会对springmvc的各个组件进行初始化：
     protected void initStrategies(ApplicationContext context) {
         this.initMultipartResolver(context); //文件上传解析器
@@ -32,6 +33,7 @@ DispatcherServlet的initStrategies方法，将会对springmvc的各个组件进�
         this.initViewResolvers(context);
         this.initFlashMapManager(context);
     }
+```java
 
 ----------------------------------------
 
