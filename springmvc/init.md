@@ -1,6 +1,132 @@
 在web.xml中配置的DispatcherServlet，观察其继承关系：  
 DispatcherServlet --> FrameworkServlet --> HttpServletBean --> HttpServlet --> GenericServlet --> interface Servlet  
 可以发现它实际上是Tomcat的一个Servlet，而tomcat对Servlet的初始化流程将从init(ServletConfig var1)方法开始：  
+```java
+public interface Servlet {
+    void init(ServletConfig var1) throws ServletException;
+    ...
+}
+
+public abstract class GenericServlet implements Servlet, ServletConfig, Serializable {
+    public void init(ServletConfig config) throws ServletException {
+        this.config = config;
+        this.init();
+    }
+    public void init() throws ServletException {}
+    ...
+}
+
+public abstract class HttpServletBean extends HttpServlet implements EnvironmentCapable, EnvironmentAware {
+    public final void init() throws ServletException {
+        PropertyValues pvs = new ServletConfigPropertyValues(this.getServletConfig(), this.requiredProperties);
+        if (!pvs.isEmpty()) {
+            try {
+                //创建BeanWrapper获取和设置bean中的属性值，创建resourceLoader读取文件资源
+                BeanWrapper bw = PropertyAccessorFactory.forBeanPropertyAccess(this);
+                ResourceLoader resourceLoader = new ServletContextResourceLoader(this.getServletContext());
+                bw.registerCustomEditor(Resource.class, new ResourceEditor(resourceLoader, this.getEnvironment()));
+                this.initBeanWrapper(bw);
+                bw.setPropertyValues(pvs, true);
+            } catch (BeansException var4) { ... }
+        }
+        this.initServletBean();
+    }
+    protected void initServletBean() throws ServletException {}
+	...
+}
+
+public abstract class FrameworkServlet extends HttpServletBean implements ApplicationContextAware {
+    protected final void initServletBean() throws ServletException {
+        ...
+        try {
+            //准备创建WebApplicationContext，提供管理、获取bean的功能
+            this.webApplicationContext = this.initWebApplicationContext();
+            //空方法
+            this.initFrameworkServlet();
+        } catch (RuntimeException | ServletException var4) { ... }
+		...
+    }
+    protected WebApplicationContext initWebApplicationContext() {
+        WebApplicationContext rootContext = WebApplicationContextUtils.getWebApplicationContext(this.getServletContext());
+        WebApplicationContext wac = null;
+        if (this.webApplicationContext != null) {
+            wac = this.webApplicationContext;
+            if (wac instanceof ConfigurableWebApplicationContext) {
+                ConfigurableWebApplicationContext cwac = (ConfigurableWebApplicationContext)wac;
+                if (!cwac.isActive()) {
+                    if (cwac.getParent() == null) {
+                        cwac.setParent(rootContext);
+                    }
+
+                    this.configureAndRefreshWebApplicationContext(cwac);
+                }
+            }
+        }
+
+        if (wac == null) {
+            wac = this.findWebApplicationContext();
+        }
+
+        if (wac == null) {
+            wac = this.createWebApplicationContext(rootContext);
+        }
+
+        if (!this.refreshEventReceived) {
+            synchronized(this.onRefreshMonitor) {
+                this.onRefresh(wac);
+            }
+        }
+
+        if (this.publishContext) {
+            String attrName = this.getServletContextAttributeName();
+            this.getServletContext().setAttribute(attrName, wac);
+        }
+
+        return wac;
+    }
+	
+    protected WebApplicationContext createWebApplicationContext(@Nullable ApplicationContext parent) {
+        Class<?> contextClass = this.getContextClass();
+        if (!ConfigurableWebApplicationContext.class.isAssignableFrom(contextClass)) {
+            throw new ApplicationContextException("Fatal initialization error in servlet with name '" + this.getServletName() + "': custom WebApplicationContext class [" + contextClass.getName() + "] is not of type ConfigurableWebApplicationContext");
+        } else {
+            ConfigurableWebApplicationContext wac = (ConfigurableWebApplicationContext)BeanUtils.instantiateClass(contextClass);
+            wac.setEnvironment(this.getEnvironment());
+            wac.setParent(parent);
+            String configLocation = this.getContextConfigLocation();
+            if (configLocation != null) {
+                wac.setConfigLocation(configLocation);
+            }
+
+            this.configureAndRefreshWebApplicationContext(wac);
+            return wac;
+        }
+    }
+
+    protected void configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext wac) {
+        if (ObjectUtils.identityToString(wac).equals(wac.getId())) {
+            if (this.contextId != null) {
+                wac.setId(this.contextId);
+            } else {
+                wac.setId(ConfigurableWebApplicationContext.APPLICATION_CONTEXT_ID_PREFIX + ObjectUtils.getDisplayString(this.getServletContext().getContextPath()) + '/' + this.getServletName());
+            }
+        }
+
+        wac.setServletContext(this.getServletContext());
+        wac.setServletConfig(this.getServletConfig());
+        wac.setNamespace(this.getNamespace());
+        wac.addApplicationListener(new SourceFilteringListener(wac, new ContextRefreshListener()));
+        ConfigurableEnvironment env = wac.getEnvironment();
+        if (env instanceof ConfigurableWebEnvironment) {
+            ((ConfigurableWebEnvironment)env).initPropertySources(this.getServletContext(), this.getServletConfig());
+        }
+
+        this.postProcessWebApplicationContext(wac);
+        this.applyInitializers(wac);
+        wac.refresh();
+    }
+	...
+}
 ---> interface Servlet # void init(ServletConfig var1)  
 ---> abstract class GenericServlet implements Servlet # void init(ServletConfig config) ---> void init()  
 ---> abstract class HttpServletBean extends HttpServlet # void init() 创建BeanWrapper获取和设置bean中的属性值，创建resourceLoader读取文件资源  
@@ -9,7 +135,7 @@ DispatcherServlet --> FrameworkServlet --> HttpServletBean --> HttpServlet --> G
     ---> WebApplicationContext initWebApplicationContext() 准备创建WebApplicationContext，提供管理、获取bean的功能  
     ---> WebApplicationContext createWebApplicationContext(@Nullable ApplicationContext parent)  
     ---> void configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext wac) 添加事件监听器SourceFilteringListener  
-
+```
 在springmvc中，提供了ApplicationEventPublisher#publishEvent(Object)（事件发布器）、ApplicationEvent（事件）与 ApplicationListener（事件监听器）。当springmvc通过ApplicationEventPublisher#publishEvent(Object)发布ApplicationEvent（事件）时，ApplicationListener（事件监听器）将会监听到。  
 
 在springmvc初始化过程中，SourceFilteringListener实际上调用的是另一个事件监听器ContextRefreshListener，因此当ApplicationContext容器初始化完成或者被刷新的时候，就会执行ContextRefreshListener的onApplicationEvent方法：  
