@@ -32,7 +32,7 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
         this.initServletBean();
     }
     protected void initServletBean() throws ServletException {}
-	...
+    ...
 }
 
 public abstract class FrameworkServlet extends HttpServletBean implements ApplicationContextAware {
@@ -41,10 +41,9 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
         try {
             //准备创建WebApplicationContext，提供管理、获取bean的功能
             this.webApplicationContext = this.initWebApplicationContext();
-            //空方法
-            this.initFrameworkServlet();
+            this.initFrameworkServlet();//空方法
         } catch (RuntimeException | ServletException var4) { ... }
-		...
+        ...
     }
     protected WebApplicationContext initWebApplicationContext() {
         WebApplicationContext rootContext = WebApplicationContextUtils.getWebApplicationContext(this.getServletContext());
