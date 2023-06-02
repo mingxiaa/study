@@ -22,9 +22,9 @@ DispatcherServlet --> FrameworkServlet --> HttpServletBean --> HttpServlet --> G
 
 DispatcherServlet的initStrategies方法，将会对springmvc的各个组件进行初始化：
     protected void initStrategies(ApplicationContext context) {
-        this.initMultipartResolver(context);
-        this.initLocaleResolver(context);
-        this.initThemeResolver(context);
+        this.initMultipartResolver(context); //文件上传解析器
+        this.initLocaleResolver(context); //语言本地化解析器
+        this.initThemeResolver(context); //动态样式解析器
         this.initHandlerMappings(context);
         this.initHandlerAdapters(context);
         this.initHandlerExceptionResolvers(context);
@@ -32,4 +32,92 @@ DispatcherServlet的initStrategies方法，将会对springmvc的各个组件进�
         this.initViewResolvers(context);
         this.initFlashMapManager(context);
     }
-  
+
+----------------------------------------
+
+private void initHandlerMappings(ApplicationContext context) {
+    this.handlerMappings = null;
+    //springmvc会加载所有实现了HandlerMapping接口的bean，并进行排序。
+    if (this.detectAllHandlerMappings) {
+        Map<String, HandlerMapping> matchingBeans = BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
+        if (!matchingBeans.isEmpty()) {
+            this.handlerMappings = new ArrayList(matchingBeans.values());
+            AnnotationAwareOrderComparator.sort(this.handlerMappings);
+        }
+    } else { //将detectAllHandlerMappings设置为false，springmvc将只加载名为HandlerMapping的bean
+        try {
+            HandlerMapping hm = (HandlerMapping)context.getBean("handlerMapping", HandlerMapping.class);
+            this.handlerMappings = Collections.singletonList(hm);
+        } catch (NoSuchBeanDefinitionException var4) {}
+    }
+    //如果没有自定义HandlerMapping，springmvc会加载默认提供的HandlerMapping
+    if (this.handlerMappings == null) {
+        this.handlerMappings = this.getDefaultStrategies(context, HandlerMapping.class);
+        ...
+    }
+    ...
+}
+
+protected <T> List<T> getDefaultStrategies(ApplicationContext context, Class<T> strategyInterface) {
+    if (defaultStrategies == null) {
+        try {
+            //DispatcherServlet.properties保存着DispatcherServlet的一些默认实现类
+            ClassPathResource resource = new ClassPathResource("DispatcherServlet.properties", DispatcherServlet.class);
+            defaultStrategies = PropertiesLoaderUtils.loadProperties(resource);
+        } catch (IOException var15) { ... }
+    }
+    ...
+            try {
+                Class<?> clazz = ClassUtils.forName(className, DispatcherServlet.class.getClassLoader());
+                //创建从DispatcherServlet.properties获取的HandlerMapping默认实现类
+                Object strategy = this.createDefaultStrategy(context, clazz);
+                strategies.add(strategy);
+            } catch (ClassNotFoundException var13) { ... 
+            } catch (LinkageError var14) { ... }
+    ...
+}
+
+protected Object createDefaultStrategy(ApplicationContext context, Class<?> clazz) {
+    return context.getAutowireCapableBeanFactory().createBean(clazz);
+}
+
+DispatcherServlet.properties中提供的HandlerMapping默认实现类有三个：
+org.springframework.web.servlet.HandlerMapping=org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping,\
+	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping,\
+	org.springframework.web.servlet.function.support.RouterFunctionMapping
+
+RequestMappingHandlerMapping的继承关系：
+RequestMappingHandlerMapping --> RequestMappingInfoHandlerMapping --> AbstractHandlerMethodMapping --> InitializingBean
+在前面的context.getAutowireCapableBeanFactory().createBean(clazz)代码中，实际上调用了AbstractAutowireCapableBeanFactory的createBean(Class<T> beanClass)方法，这是spring创建并初始化bean的方法，过程中会调用bean的afterPropertiesSet()方法，而afterPropertiesSet()则实现自InitializingBean接口。
+RequestMappingHandlerMapping并没有重写afterPropertiesSet()方法，因此其创建并初始化过程中，实际上是调用了父类AbstractHandlerMethodMapping的afterPropertiesSet()方法。
+
+public void afterPropertiesSet() {
+    this.initHandlerMethods();
+}
+
+protected void initHandlerMethods() {
+    String[] var1 = this.getCandidateBeanNames();
+    int var2 = var1.length;
+
+    for(int var3 = 0; var3 < var2; ++var3) {
+        String beanName = var1[var3];
+        if (!beanName.startsWith("scopedTarget.")) {
+            this.processCandidateBean(beanName);
+        }
+    }
+
+    this.handlerMethodsInitialized(this.getHandlerMethods());
+}
+
+protected void processCandidateBean(String beanName) {
+    Class<?> beanType = null;
+
+    try {
+        beanType = this.obtainApplicationContext().getType(beanName);
+    } catch (Throwable var4) { ... }
+
+    if (beanType != null && this.isHandler(beanType)) {
+        this.detectHandlerMethods(beanName);
+    }
+
+}
