@@ -18,17 +18,8 @@ public abstract class GenericServlet implements Servlet, ServletConfig, Serializ
 
 public abstract class HttpServletBean extends HttpServlet implements EnvironmentCapable, EnvironmentAware {
     public final void init() throws ServletException {
-        PropertyValues pvs = new ServletConfigPropertyValues(this.getServletConfig(), this.requiredProperties);
-        if (!pvs.isEmpty()) {
-            try {
-                //创建BeanWrapper获取和设置bean中的属性值，创建resourceLoader读取文件资源
-                BeanWrapper bw = PropertyAccessorFactory.forBeanPropertyAccess(this);
-                ResourceLoader resourceLoader = new ServletContextResourceLoader(this.getServletContext());
-                bw.registerCustomEditor(Resource.class, new ResourceEditor(resourceLoader, this.getEnvironment()));
-                this.initBeanWrapper(bw);
-                bw.setPropertyValues(pvs, true);
-            } catch (BeansException var4) { ... }
-        }
+        //创建BeanWrapper获取和设置bean中的属性值，创建resourceLoader读取文件资源
+        ...
         this.initServletBean();
     }
     protected void initServletBean() throws ServletException {}
@@ -41,34 +32,18 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
         try {
             //准备创建WebApplicationContext，提供管理、获取bean的功能
             this.webApplicationContext = this.initWebApplicationContext();
-            this.initFrameworkServlet();//空方法
+            this.initFrameworkServlet();
         } catch (RuntimeException | ServletException var4) { ... }
         ...
     }
     protected WebApplicationContext initWebApplicationContext() {
         WebApplicationContext rootContext = WebApplicationContextUtils.getWebApplicationContext(this.getServletContext());
         WebApplicationContext wac = null;
-        if (this.webApplicationContext != null) {
-            wac = this.webApplicationContext;
-            if (wac instanceof ConfigurableWebApplicationContext) {
-                ConfigurableWebApplicationContext cwac = (ConfigurableWebApplicationContext)wac;
-                if (!cwac.isActive()) {
-                    if (cwac.getParent() == null) {
-                        cwac.setParent(rootContext);
-                    }
-
-                    this.configureAndRefreshWebApplicationContext(cwac);
-                }
-            }
-        }
-
-        if (wac == null) {
-            wac = this.findWebApplicationContext();
-        }
-
-        if (wac == null) {
-            wac = this.createWebApplicationContext(rootContext);
-        }
+        //已存在WebApplicationContext的情况，同样会跳转至configureAndRefreshWebApplicationContext(wac)
+        if (this.webApplicationContext != null) { ... }
+        ...
+        //创建WebApplicationContext
+        if (wac == null) { wac = this.createWebApplicationContext(rootContext); }
 
         if (!this.refreshEventReceived) {
             synchronized(this.onRefreshMonitor) {
@@ -85,17 +60,18 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
     }
 	
     protected WebApplicationContext createWebApplicationContext(@Nullable ApplicationContext parent) {
+        //contextClass的默认值为XmlWebApplicationContext.class(构造函数赋值)
         Class<?> contextClass = this.getContextClass();
+        //判断是否为ConfigurableWebApplicationContext的子类
         if (!ConfigurableWebApplicationContext.class.isAssignableFrom(contextClass)) {
-            throw new ApplicationContextException("Fatal initialization error in servlet with name '" + this.getServletName() + "': custom WebApplicationContext class [" + contextClass.getName() + "] is not of type ConfigurableWebApplicationContext");
+            ...
         } else {
+            //创建WebApplicationContext
             ConfigurableWebApplicationContext wac = (ConfigurableWebApplicationContext)BeanUtils.instantiateClass(contextClass);
-            wac.setEnvironment(this.getEnvironment());
-            wac.setParent(parent);
+            ...
+            //获取web.xml中配置的contextConfigLocation属性
             String configLocation = this.getContextConfigLocation();
-            if (configLocation != null) {
-                wac.setConfigLocation(configLocation);
-            }
+            if (configLocation != null) { wac.setConfigLocation(configLocation); }
 
             this.configureAndRefreshWebApplicationContext(wac);
             return wac;
@@ -103,17 +79,8 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
     }
 
     protected void configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext wac) {
-        if (ObjectUtils.identityToString(wac).equals(wac.getId())) {
-            if (this.contextId != null) {
-                wac.setId(this.contextId);
-            } else {
-                wac.setId(ConfigurableWebApplicationContext.APPLICATION_CONTEXT_ID_PREFIX + ObjectUtils.getDisplayString(this.getServletContext().getContextPath()) + '/' + this.getServletName());
-            }
-        }
-
-        wac.setServletContext(this.getServletContext());
-        wac.setServletConfig(this.getServletConfig());
-        wac.setNamespace(this.getNamespace());
+        ...
+        //添加监听器ContextRefreshListener
         wac.addApplicationListener(new SourceFilteringListener(wac, new ContextRefreshListener()));
         ConfigurableEnvironment env = wac.getEnvironment();
         if (env instanceof ConfigurableWebEnvironment) {
@@ -144,8 +111,8 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 ---> class DispatcherServlet extends FrameworkServlet # void onRefresh(ApplicationContext context)  
     ---> void initStrategies(ApplicationContext context)  
 
-```java
 DispatcherServlet的initStrategies方法，将会对springmvc的各个组件进行初始化：
+```java
     protected void initStrategies(ApplicationContext context) {
         this.initMultipartResolver(context); //文件上传解析器
         this.initLocaleResolver(context); //语言本地化解析器
