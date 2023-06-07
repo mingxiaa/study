@@ -46,18 +46,11 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
         //创建WebApplicationContext
         if (wac == null) { wac = this.createWebApplicationContext(rootContext); }
 
+        //若刷新WebApplicationContext未成功，则再次进行尝试
         if (!this.refreshEventReceived) {
-            synchronized(this.onRefreshMonitor) {
-                this.onRefresh(wac);
-            }
+            synchronized(this.onRefreshMonitor) { this.onRefresh(wac); }
         }
-
-        if (this.publishContext) {
-            String attrName = this.getServletContextAttributeName();
-            this.getServletContext().setAttribute(attrName, wac);
-        }
-
-        return wac;
+        ...
     }
 	
     protected WebApplicationContext createWebApplicationContext(@Nullable ApplicationContext parent) {
@@ -83,29 +76,60 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
         ...
         //添加监听器ContextRefreshListener，该监听器在容器刷新完成后触发
         wac.addApplicationListener(new SourceFilteringListener(wac, new ContextRefreshListener()));
-        ConfigurableEnvironment env = wac.getEnvironment();
-        if (env instanceof ConfigurableWebEnvironment) {
-            ((ConfigurableWebEnvironment)env).initPropertySources(this.getServletContext(), this.getServletConfig());
-        }
-
-        this.postProcessWebApplicationContext(wac);
-        this.applyInitializers(wac);
+        ...
+        
+        //WebApplicationContext刷新，结束时触发ContextRefreshListener
         wac.refresh();
     }
-	...
+    ...
 }
 ```
 在springmvc中，提供了ApplicationEventPublisher#publishEvent(Object)（事件发布器）、ApplicationEvent（事件）与 ApplicationListener（事件监听器）。当springmvc通过ApplicationEventPublisher#publishEvent(Object)发布ApplicationEvent（事件）时，ApplicationListener（事件监听器）将会监听到。  
-
-在springmvc初始化过程中，SourceFilteringListener实际上调用的是另一个事件监听器ContextRefreshListener，因此当ApplicationContext容器初始化完成或者被刷新的时候，就会执行ContextRefreshListener的onApplicationEvent方法：  
----> class ContextRefreshListener # void onApplicationEvent(ContextRefreshedEvent event) 其中ContextRefreshListener是FrameworkServlet的内部类  
----> abstract class FrameworkServlet # void onApplicationEvent(ContextRefreshedEvent event)  
-    ---> void onRefresh(ApplicationContext context)  
----> class DispatcherServlet extends FrameworkServlet # void onRefresh(ApplicationContext context)  
-    ---> void initStrategies(ApplicationContext context)  
-
-DispatcherServlet的initStrategies方法，将会对springmvc的各个组件进行初始化：
 ```java
+public interface ConfigurableApplicationContext extends ApplicationContext, Lifecycle, Closeable {
+    void refresh() throws BeansException, IllegalStateException;
+    ...
+}
+public abstract class AbstractApplicationContext extends DefaultResourceLoader implements ConfigurableApplicationContext {
+    public void refresh() throws BeansException, IllegalStateException {
+        synchronized(this.startupShutdownMonitor) {
+            ...
+            try {
+                ...
+                //结束WebApplicationContext刷新
+                this.finishRefresh();
+            } catch (BeansException var10) {
+                ...
+            } finally {
+                ...
+            }
+        }
+    }
+    protected void finishRefresh() {
+        //发送WebApplicationContext刷新结束事件
+        this.publishEvent((ApplicationEvent)(new ContextRefreshedEvent(this)));
+        ...
+    }
+}
+
+public abstract class FrameworkServlet extends HttpServletBean implements ApplicationContextAware {
+    private class ContextRefreshListener implements ApplicationListener<ContextRefreshedEvent> {
+        ...
+        //WebApplicationContext刷新结束事件触发该监听器
+        public void onApplicationEvent(ContextRefreshedEvent event) { FrameworkServlet.this.onApplicationEvent(event); }
+    }
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+        this.refreshEventReceived = true;
+        synchronized(this.onRefreshMonitor) { this.onRefresh(event.getApplicationContext()); }
+    }
+    protected void onRefresh(ApplicationContext context) {}
+    ...
+}
+
+public class DispatcherServlet extends FrameworkServlet {
+    protected void onRefresh(ApplicationContext context) {
+        this.initStrategies(context);
+    }
     protected void initStrategies(ApplicationContext context) {
         this.initMultipartResolver(context); //文件上传解析器
         this.initLocaleResolver(context); //语言本地化解析器
@@ -117,6 +141,7 @@ DispatcherServlet的initStrategies方法，将会对springmvc的各个组件进�
         this.initViewResolvers(context);
         this.initFlashMapManager(context);
     }
+}
 ```
 
 ----------------------------------------  
