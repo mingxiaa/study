@@ -100,9 +100,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader i
                 this.finishRefresh();
             } catch (BeansException var10) {
                 ...
-            } finally {
-                ...
-            }
+            } finally { ... }
         }
     }
     protected void finishRefresh() {
@@ -110,6 +108,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader i
         this.publishEvent((ApplicationEvent)(new ContextRefreshedEvent(this)));
         ...
     }
+    ...
 }
 
 public abstract class FrameworkServlet extends HttpServletBean implements ApplicationContextAware {
@@ -141,6 +140,7 @@ public class DispatcherServlet extends FrameworkServlet {
         this.initViewResolvers(context);
         this.initFlashMapManager(context);
     }
+    ...
 }
 ```
 
