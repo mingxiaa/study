@@ -42,6 +42,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
         //已存在WebApplicationContext的情况，同样会跳转至configureAndRefreshWebApplicationContext(wac)
         if (this.webApplicationContext != null) { ... }
         ...
+        
         //创建WebApplicationContext
         if (wac == null) { wac = this.createWebApplicationContext(rootContext); }
 
@@ -62,13 +63,13 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
     protected WebApplicationContext createWebApplicationContext(@Nullable ApplicationContext parent) {
         //contextClass的默认值为XmlWebApplicationContext.class(构造函数赋值)
         Class<?> contextClass = this.getContextClass();
-        //判断是否为ConfigurableWebApplicationContext的子类
         if (!ConfigurableWebApplicationContext.class.isAssignableFrom(contextClass)) {
             ...
         } else {
             //创建WebApplicationContext
             ConfigurableWebApplicationContext wac = (ConfigurableWebApplicationContext)BeanUtils.instantiateClass(contextClass);
             ...
+            
             //获取web.xml中配置的contextConfigLocation属性
             String configLocation = this.getContextConfigLocation();
             if (configLocation != null) { wac.setConfigLocation(configLocation); }
@@ -80,7 +81,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 
     protected void configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext wac) {
         ...
-        //添加监听器ContextRefreshListener
+        //添加监听器ContextRefreshListener，该监听器在容器刷新完成后触发
         wac.addApplicationListener(new SourceFilteringListener(wac, new ContextRefreshListener()));
         ConfigurableEnvironment env = wac.getEnvironment();
         if (env instanceof ConfigurableWebEnvironment) {
@@ -93,14 +94,6 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
     }
 	...
 }
----> interface Servlet # void init(ServletConfig var1)  
----> abstract class GenericServlet implements Servlet # void init(ServletConfig config) ---> void init()  
----> abstract class HttpServletBean extends HttpServlet # void init() 创建BeanWrapper获取和设置bean中的属性值，创建resourceLoader读取文件资源  
-    ---> void initServletBean()  
----> abstract class FrameworkServlet extends HttpServletBean # void initServletBean()  
-    ---> WebApplicationContext initWebApplicationContext() 准备创建WebApplicationContext，提供管理、获取bean的功能  
-    ---> WebApplicationContext createWebApplicationContext(@Nullable ApplicationContext parent)  
-    ---> void configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext wac) 添加事件监听器SourceFilteringListener  
 ```
 在springmvc中，提供了ApplicationEventPublisher#publishEvent(Object)（事件发布器）、ApplicationEvent（事件）与 ApplicationListener（事件监听器）。当springmvc通过ApplicationEventPublisher#publishEvent(Object)发布ApplicationEvent（事件）时，ApplicationListener（事件监听器）将会监听到。  
 
