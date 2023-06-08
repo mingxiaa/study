@@ -265,3 +265,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
     ...
 }
 ```
+
+BeanNameUrlHandlerMapping的继承关系：
+BeanNameUrlHandlerMapping --> AbstractDetectingUrlHandlerMapping --> AbstractUrlHandlerMapping --> AbstractHandlerMapping --> WebApplicationObjectSupport --> ApplicationObjectSupport --> ApplicationContextAware
+不同于RequestMappingHandlerMapping，BeanNameUrlHandlerMapping的初始化入口为ApplicationContextAware接口的setApplicationContext(ApplicationContext applicationContext)方法。
