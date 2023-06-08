@@ -147,92 +147,115 @@ public class DispatcherServlet extends FrameworkServlet {
 ----------------------------------------  
 
 ```java
-private void initHandlerMappings(ApplicationContext context) {
-    this.handlerMappings = null;
-    //springmvc会加载所有实现了HandlerMapping接口的bean，并进行排序。
-    if (this.detectAllHandlerMappings) {
-        Map<String, HandlerMapping> matchingBeans = BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
-        if (!matchingBeans.isEmpty()) {
-            this.handlerMappings = new ArrayList(matchingBeans.values());
-            AnnotationAwareOrderComparator.sort(this.handlerMappings);
+public class DispatcherServlet extends FrameworkServlet {
+    private void initHandlerMappings(ApplicationContext context) {
+        this.handlerMappings = null;
+        //springmvc会加载所有实现了HandlerMapping接口的bean，并进行排序。
+        if (this.detectAllHandlerMappings) {
+            //配置文件中的<mvc:annotation-driven></mvc:annotation-driven>标签，会创建RequestMappingHandlerMapping的bean，并在此时被扫描到
+            Map<String, HandlerMapping> matchingBeans = BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
+            if (!matchingBeans.isEmpty()) {
+                this.handlerMappings = new ArrayList(matchingBeans.values());
+                AnnotationAwareOrderComparator.sort(this.handlerMappings);
+            }
+        } else { //将detectAllHandlerMappings设置为false，springmvc将只加载名为HandlerMapping的bean
+            try {
+                HandlerMapping hm = (HandlerMapping)context.getBean("handlerMapping", HandlerMapping.class);
+                this.handlerMappings = Collections.singletonList(hm);
+            } catch (NoSuchBeanDefinitionException var4) {}
         }
-    } else { //将detectAllHandlerMappings设置为false，springmvc将只加载名为HandlerMapping的bean
-        try {
-            HandlerMapping hm = (HandlerMapping)context.getBean("handlerMapping", HandlerMapping.class);
-            this.handlerMappings = Collections.singletonList(hm);
-        } catch (NoSuchBeanDefinitionException var4) {}
-    }
-    //如果没有自定义HandlerMapping，springmvc会加载默认提供的HandlerMapping
-    if (this.handlerMappings == null) {
-        this.handlerMappings = this.getDefaultStrategies(context, HandlerMapping.class);
+        //如果仍未加载HandlerMapping，springmvc会加载默认提供的HandlerMapping
+        if (this.handlerMappings == null) {
+            this.handlerMappings = this.getDefaultStrategies(context, HandlerMapping.class);
+            ...
+        }
         ...
     }
     ...
 }
-
-protected <T> List<T> getDefaultStrategies(ApplicationContext context, Class<T> strategyInterface) {
-    if (defaultStrategies == null) {
-        try {
-            //DispatcherServlet.properties保存着DispatcherServlet的一些默认实现类
-            ClassPathResource resource = new ClassPathResource("DispatcherServlet.properties", DispatcherServlet.class);
-            defaultStrategies = PropertiesLoaderUtils.loadProperties(resource);
-        } catch (IOException var15) { ... }
-    }
-    ...
-            try {
-                Class<?> clazz = ClassUtils.forName(className, DispatcherServlet.class.getClassLoader());
-                //创建从DispatcherServlet.properties获取的HandlerMapping默认实现类
-                Object strategy = this.createDefaultStrategy(context, clazz);
-                strategies.add(strategy);
-            } catch (ClassNotFoundException var13) { ... 
-            } catch (LinkageError var14) { ... }
-    ...
-}
-
-protected Object createDefaultStrategy(ApplicationContext context, Class<?> clazz) {
-    return context.getAutowireCapableBeanFactory().createBean(clazz);
-}
 ```
 
 DispatcherServlet.properties中提供的HandlerMapping默认实现类有三个：  
-org.springframework.web.servlet.HandlerMapping=org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping,\  
-	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping,\  
-	org.springframework.web.servlet.function.support.RouterFunctionMapping  
+···
+org.springframework.web.servlet.HandlerMapping=org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping,\
+	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping,\
+	org.springframework.web.servlet.function.support.RouterFunctionMapping
+···
 
-RequestMappingHandlerMapping的继承关系：  
+通过<mvc:annotation-driven></mvc:annotation-driven>创建的RequestMappingHandlerMapping，其继承关系：  
 RequestMappingHandlerMapping --> RequestMappingInfoHandlerMapping --> AbstractHandlerMethodMapping --> InitializingBean  
-在前面的context.getAutowireCapableBeanFactory().createBean(clazz)代码中，实际上调用了AbstractAutowireCapableBeanFactory的createBean(Class<T> beanClass)方法，这是spring创建并初始化bean的方法，过程中会调用bean的afterPropertiesSet()方法，而afterPropertiesSet()则实现自InitializingBean接口。  
-RequestMappingHandlerMapping并没有重写afterPropertiesSet()方法，因此其创建并初始化过程中，实际上是调用了父类AbstractHandlerMethodMapping的afterPropertiesSet()方法。  
+在spring创建并初始化bean的过程中，会调用bean中的afterPropertiesSet()方法(实现自InitializingBean接口)。 
 
 ```java
-public void afterPropertiesSet() {
-    this.initHandlerMethods();
+public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMapping implements MatchableHandlerMapping, EmbeddedValueResolverAware {
+    public void afterPropertiesSet() {
+        ...
+        super.afterPropertiesSet();
+    }
+    
+    protected boolean isHandler(Class<?> beanType) {
+        //如果含有@Controller或者@RequestMapping的注解，则返回true
+        //由于Controller.class添加了@Component注解(@Component表示这是一个bean)，而RequestMapping.class没有，因此两者使用方法并不一样
+        //使用@Controller注解，或使用@Component+@RequestMapping注解，都能被识别为控制类
+        return AnnotatedElementUtils.hasAnnotation(beanType, Controller.class) || AnnotatedElementUtils.hasAnnotation(beanType, RequestMapping.class);
+    }
+    ...
 }
 
-protected void initHandlerMethods() {
-    String[] var1 = this.getCandidateBeanNames();
-    int var2 = var1.length;
+public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMapping implements InitializingBean {
+    public void afterPropertiesSet() {
+        this.initHandlerMethods();
+    }
 
-    for(int var3 = 0; var3 < var2; ++var3) {
-        String beanName = var1[var3];
-        if (!beanName.startsWith("scopedTarget.")) {
-            this.processCandidateBean(beanName);
+    protected void initHandlerMethods() {
+        //获取所有的bean
+        String[] var1 = this.getCandidateBeanNames();
+        int var2 = var1.length;
+        for(int var3 = 0; var3 < var2; ++var3) {
+            String beanName = var1[var3];
+            if (!beanName.startsWith("scopedTarget.")) {
+                //解析bean
+                this.processCandidateBean(beanName);
+            }
         }
+        ...
     }
 
-    this.handlerMethodsInitialized(this.getHandlerMethods());
-}
+    protected void processCandidateBean(String beanName) {
+        Class<?> beanType = null;
+        try {
+            //获取bean的类型
+            beanType = this.obtainApplicationContext().getType(beanName);
+        } catch (Throwable var4) { ... }
+        //如果bean的类型是handler，则进一步解析
+        if (beanType != null && this.isHandler(beanType)) {
+            this.detectHandlerMethods(beanName);
+        }
 
-protected void processCandidateBean(String beanName) {
-    Class<?> beanType = null;
-
-    try {
-        beanType = this.obtainApplicationContext().getType(beanName);
-    } catch (Throwable var4) { ... }
-
-    if (beanType != null && this.isHandler(beanType)) {
-        this.detectHandlerMethods(beanName);
     }
+    
+    //判断bean类型的方法，实际由子类RequestMappingHandlerMapping实现
+    protected abstract T getMappingForMethod(Method method, Class<?> handlerType);
+    
+    protected void detectHandlerMethods(Object handler) {
+        Class<?> handlerType = handler instanceof String ? this.obtainApplicationContext().getType((String)handler) : handler.getClass();
+        if (handlerType != null) {
+            Class<?> userType = ClassUtils.getUserClass(handlerType);
+            Map<Method, T> methods = MethodIntrospector.selectMethods(userType, (method) -> {
+                try {
+                    //解析类中的所有
+                    return this.getMappingForMethod(method, userType);
+                } catch (Throwable var4) { ... }
+            });
+            ...
 
+            methods.forEach((method, mapping) -> {
+                Method invocableMethod = AopUtils.selectInvocableMethod(method, userType);
+                this.registerHandlerMethod(handler, invocableMethod, mapping);
+            });
+        }
+
+    }
+    ...
 }
 ```
