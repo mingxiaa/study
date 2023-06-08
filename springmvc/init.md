@@ -145,7 +145,8 @@ public class DispatcherServlet extends FrameworkServlet {
     ...
 }
 ```
-----------------------------------------  
+----------------------------------------
+HandlerMappings的初始化(initHandlerMappings(context))：
 ```java
 public class DispatcherServlet extends FrameworkServlet {
     private void initHandlerMappings(ApplicationContext context) {
