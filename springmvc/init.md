@@ -236,20 +236,22 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
     }
     
     //判断bean类型的方法，实际由子类RequestMappingHandlerMapping实现
-    protected abstract T getMappingForMethod(Method method, Class<?> handlerType);
+    protected abstract boolean isHandler(Class<?> beanType);
     
     protected void detectHandlerMethods(Object handler) {
         Class<?> handlerType = handler instanceof String ? this.obtainApplicationContext().getType((String)handler) : handler.getClass();
         if (handlerType != null) {
             Class<?> userType = ClassUtils.getUserClass(handlerType);
+            
+            //获取类中的所有含有@RequestMapping注解的方法
             Map<Method, T> methods = MethodIntrospector.selectMethods(userType, (method) -> {
                 try {
-                    //解析类中的所有
                     return this.getMappingForMethod(method, userType);
                 } catch (Throwable var4) { ... }
             });
             ...
 
+            //注册所有的RequestMapping
             methods.forEach((method, mapping) -> {
                 Method invocableMethod = AopUtils.selectInvocableMethod(method, userType);
                 this.registerHandlerMethod(handler, invocableMethod, mapping);
@@ -257,6 +259,9 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
         }
 
     }
+    
+    //获取类中的所有含有@RequestMapping注解的方法，由子类RequestMappingHandlerMapping实现
+    protected abstract T getMappingForMethod(Method method, Class<?> handlerType);
     ...
 }
 ```
