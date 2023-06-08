@@ -164,6 +164,7 @@ public class DispatcherServlet extends FrameworkServlet {
                 this.handlerMappings = Collections.singletonList(hm);
             } catch (NoSuchBeanDefinitionException var4) {}
         }
+	
         //如果仍未加载HandlerMapping，springmvc会加载默认提供的HandlerMapping
         if (this.handlerMappings == null) {
             this.handlerMappings = this.getDefaultStrategies(context, HandlerMapping.class);
@@ -176,11 +177,11 @@ public class DispatcherServlet extends FrameworkServlet {
 ```
 
 DispatcherServlet.properties中提供的HandlerMapping默认实现类有三个：  
-···
+```
 org.springframework.web.servlet.HandlerMapping=org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping,\
 	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping,\
 	org.springframework.web.servlet.function.support.RouterFunctionMapping
-···
+```
 
 通过<mvc:annotation-driven></mvc:annotation-driven>创建的RequestMappingHandlerMapping，其继承关系：  
 RequestMappingHandlerMapping --> RequestMappingInfoHandlerMapping --> AbstractHandlerMethodMapping --> InitializingBean  
