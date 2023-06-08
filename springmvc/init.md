@@ -182,8 +182,10 @@ org.springframework.web.servlet.HandlerMapping=org.springframework.web.servlet.h
 	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping,\
 	org.springframework.web.servlet.function.support.RouterFunctionMapping
 ```
-通过<mvc:annotation-driven></mvc:annotation-driven>创建的RequestMappingHandlerMapping，其继承关系：  
-RequestMappingHandlerMapping --> RequestMappingInfoHandlerMapping --> AbstractHandlerMethodMapping --> InitializingBean  
+通过<mvc:annotation-driven></mvc:annotation-driven>创建的RequestMappingHandlerMapping，其继承关系：
+```
+RequestMappingHandlerMapping --> RequestMappingInfoHandlerMapping --> AbstractHandlerMethodMapping --> InitializingBean
+````
 在spring创建并初始化bean的过程中，会调用bean中的afterPropertiesSet()方法(实现自InitializingBean接口)。 
 ```java
 public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMapping implements MatchableHandlerMapping, EmbeddedValueResolverAware {
