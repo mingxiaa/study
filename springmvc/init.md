@@ -1,5 +1,7 @@
-在web.xml中配置的DispatcherServlet，观察其继承关系：  
-DispatcherServlet --> FrameworkServlet --> HttpServletBean --> HttpServlet --> GenericServlet --> interface Servlet  
+在web.xml中配置的DispatcherServlet，观察其继承关系： 
+```
+DispatcherServlet --> FrameworkServlet --> HttpServletBean --> HttpServlet --> GenericServlet --> interface Servlet
+```
 可以发现它实际上是Tomcat的一个Servlet，而tomcat对Servlet的初始化流程将从init(ServletConfig var1)方法开始：  
 ```java
 public interface Servlet {
@@ -143,9 +145,7 @@ public class DispatcherServlet extends FrameworkServlet {
     ...
 }
 ```
-
 ----------------------------------------  
-
 ```java
 public class DispatcherServlet extends FrameworkServlet {
     private void initHandlerMappings(ApplicationContext context) {
@@ -175,18 +175,15 @@ public class DispatcherServlet extends FrameworkServlet {
     ...
 }
 ```
-
 DispatcherServlet.properties中提供的HandlerMapping默认实现类有三个：  
 ```
 org.springframework.web.servlet.HandlerMapping=org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping,\
 	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping,\
 	org.springframework.web.servlet.function.support.RouterFunctionMapping
 ```
-
 通过<mvc:annotation-driven></mvc:annotation-driven>创建的RequestMappingHandlerMapping，其继承关系：  
 RequestMappingHandlerMapping --> RequestMappingInfoHandlerMapping --> AbstractHandlerMethodMapping --> InitializingBean  
 在spring创建并初始化bean的过程中，会调用bean中的afterPropertiesSet()方法(实现自InitializingBean接口)。 
-
 ```java
 public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMapping implements MatchableHandlerMapping, EmbeddedValueResolverAware {
     public void afterPropertiesSet() {
@@ -265,7 +262,8 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
     ...
 }
 ```
-
 BeanNameUrlHandlerMapping的继承关系：
+```
 BeanNameUrlHandlerMapping --> AbstractDetectingUrlHandlerMapping --> AbstractUrlHandlerMapping --> AbstractHandlerMapping --> WebApplicationObjectSupport --> ApplicationObjectSupport --> ApplicationContextAware
+```
 不同于RequestMappingHandlerMapping，BeanNameUrlHandlerMapping的初始化入口为ApplicationContextAware接口的setApplicationContext(ApplicationContext applicationContext)方法。
