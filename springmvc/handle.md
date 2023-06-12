@@ -30,60 +30,79 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 
 public class DispatcherServlet extends FrameworkServlet {
     protected void doService(HttpServletRequest request, HttpServletResponse response) throws Exception {
-        this.logRequest(request);
-        Map<String, Object> attributesSnapshot = null;
-        if (WebUtils.isIncludeRequest(request)) {
-            attributesSnapshot = new HashMap();
-            Enumeration<?> attrNames = request.getAttributeNames();
-
-            label116:
-            while(true) {
-                String attrName;
-                do {
-                    if (!attrNames.hasMoreElements()) {
-                        break label116;
-                    }
-
-                    attrName = (String)attrNames.nextElement();
-                } while(!this.cleanupAfterInclude && !attrName.startsWith("org.springframework.web.servlet"));
-
-                attributesSnapshot.put(attrName, request.getAttribute(attrName));
-            }
-        }
-
-        request.setAttribute(WEB_APPLICATION_CONTEXT_ATTRIBUTE, this.getWebApplicationContext());
-        request.setAttribute(LOCALE_RESOLVER_ATTRIBUTE, this.localeResolver);
-        request.setAttribute(THEME_RESOLVER_ATTRIBUTE, this.themeResolver);
-        request.setAttribute(THEME_SOURCE_ATTRIBUTE, this.getThemeSource());
-        if (this.flashMapManager != null) {
-            FlashMap inputFlashMap = this.flashMapManager.retrieveAndUpdate(request, response);
-            if (inputFlashMap != null) {
-                request.setAttribute(INPUT_FLASH_MAP_ATTRIBUTE, Collections.unmodifiableMap(inputFlashMap));
-            }
-
-            request.setAttribute(OUTPUT_FLASH_MAP_ATTRIBUTE, new FlashMap());
-            request.setAttribute(FLASH_MAP_MANAGER_ATTRIBUTE, this.flashMapManager);
-        }
-
-        RequestPath previousRequestPath = null;
-        if (this.parseRequestPath) {
-            previousRequestPath = (RequestPath)request.getAttribute(ServletRequestPathUtils.PATH_ATTRIBUTE);
-            ServletRequestPathUtils.parseAndCache(request);
-        }
-
+        //进行一些配置后，进一步跳转
+        ...
         try {
             this.doDispatch(request, response);
         } finally {
             if (!WebAsyncUtils.getAsyncManager(request).isConcurrentHandlingStarted() && attributesSnapshot != null) {
                 this.restoreAttributesAfterInclude(request, attributesSnapshot);
             }
-
             if (this.parseRequestPath) {
                 ServletRequestPathUtils.setParsedRequestPath(previousRequestPath, request);
             }
+        }
+    }
+    
+    protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        ...
+        try {
+            try {
+                ModelAndView mv = null;
+                Exception dispatchException = null;
+                try {
+                    processedRequest = this.checkMultipart(request);
+                    multipartRequestParsed = processedRequest != request;
+                    mappedHandler = this.getHandler(processedRequest);
+                    if (mappedHandler == null) {
+                        this.noHandlerFound(processedRequest, response);
+                        return;
+                    }
+
+                    HandlerAdapter ha = this.getHandlerAdapter(mappedHandler.getHandler());
+                    String method = request.getMethod();
+                    boolean isGet = HttpMethod.GET.matches(method);
+                    if (isGet || HttpMethod.HEAD.matches(method)) {
+                        long lastModified = ha.getLastModified(request, mappedHandler.getHandler());
+                        if ((new ServletWebRequest(request, response)).checkNotModified(lastModified) && isGet) {
+                            return;
+                        }
+                    }
+
+                    if (!mappedHandler.applyPreHandle(processedRequest, response)) {
+                        return;
+                    }
+
+                    mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
+                    if (asyncManager.isConcurrentHandlingStarted()) {
+                        return;
+                    }
+
+                    this.applyDefaultViewName(processedRequest, mv);
+                    mappedHandler.applyPostHandle(processedRequest, response, mv);
+                } catch (Exception var20) {
+                    dispatchException = var20;
+                } catch (Throwable var21) {
+                    dispatchException = new NestedServletException("Handler dispatch failed", var21);
+                }
+
+                this.processDispatchResult(processedRequest, response, mappedHandler, mv, (Exception)dispatchException);
+            } catch (Exception var22) {
+                this.triggerAfterCompletion(processedRequest, response, mappedHandler, var22);
+            } catch (Throwable var23) {
+                this.triggerAfterCompletion(processedRequest, response, mappedHandler, new NestedServletException("Handler processing failed", var23));
+            }
+
+        } finally {
+            if (asyncManager.isConcurrentHandlingStarted()) {
+                if (mappedHandler != null) {
+                    mappedHandler.applyAfterConcurrentHandlingStarted(processedRequest, response);
+                }
+            } else if (multipartRequestParsed) {
+                this.cleanupMultipart(processedRequest);
+            }
 
         }
-
     }
 }
 ```
