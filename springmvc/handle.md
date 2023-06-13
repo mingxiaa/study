@@ -1,6 +1,6 @@
 
 DispatcherServlet处理请求的入口为void service(HttpServletRequest req, HttpServletResponse resp)方法，但DispatcherServlet并未重写该方法，所以实际调用的是其父类FrameworkServlet中的方法：
-```java
+```java {.line-numbers}
 public abstract class FrameworkServlet extends HttpServletBean implements ApplicationContextAware {
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpMethod httpMethod = HttpMethod.resolve(request.getMethod());
@@ -53,6 +53,7 @@ public class DispatcherServlet extends FrameworkServlet {
                 try {
                     processedRequest = this.checkMultipart(request);
                     multipartRequestParsed = processedRequest != request;
+                    //获取能处理该请求的handler
                     mappedHandler = this.getHandler(processedRequest);
                     if (mappedHandler == null) {
                         this.noHandlerFound(processedRequest, response);
@@ -104,5 +105,21 @@ public class DispatcherServlet extends FrameworkServlet {
 
         }
     }
+    
+    protected HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
+        if (this.handlerMappings != null) {
+            //获取所有的HandlerMapping
+            Iterator var2 = this.handlerMappings.iterator();
+            while(var2.hasNext()) {
+                HandlerMapping mapping = (HandlerMapping)var2.next();
+                //根据HandlerMapping获取handler，比如RequestMappingHandlerMapping
+                HandlerExecutionChain handler = mapping.getHandler(request);
+                if (handler != null) { return handler; }
+            }
+        }
+        return null;
+    }
+
+    
 }
 ```
