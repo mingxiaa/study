@@ -34,13 +34,16 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
         try {
             //准备创建WebApplicationContext，提供管理、获取bean的功能
             this.webApplicationContext = this.initWebApplicationContext();
-            this.initFrameworkServlet();
-        } catch (RuntimeException | ServletException var4) { ... }
+            ...
+        } catch (RuntimeException | ServletException var4) {
+            ...
+        }
         ...
     }
     protected WebApplicationContext initWebApplicationContext() {
         WebApplicationContext rootContext = WebApplicationContextUtils.getWebApplicationContext(this.getServletContext());
         WebApplicationContext wac = null;
+
         //已存在WebApplicationContext的情况，同样会跳转至configureAndRefreshWebApplicationContext(wac)
         if (this.webApplicationContext != null) { ... }
         ...
@@ -58,6 +61,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
     protected WebApplicationContext createWebApplicationContext(@Nullable ApplicationContext parent) {
         //contextClass的默认值为XmlWebApplicationContext.class(构造函数赋值)
         Class<?> contextClass = this.getContextClass();
+        
         if (!ConfigurableWebApplicationContext.class.isAssignableFrom(contextClass)) {
             ...
         } else {
@@ -67,7 +71,9 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
             
             //获取web.xml中配置的contextConfigLocation属性
             String configLocation = this.getContextConfigLocation();
-            if (configLocation != null) { wac.setConfigLocation(configLocation); }
+            if (configLocation != null) {
+                wac.setConfigLocation(configLocation);
+            }
 
             this.configureAndRefreshWebApplicationContext(wac);
             return wac;
@@ -76,6 +82,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 
     protected void configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext wac) {
         ...
+        
         //添加监听器ContextRefreshListener，该监听器在容器刷新完成后触发
         wac.addApplicationListener(new SourceFilteringListener(wac, new ContextRefreshListener()));
         ...
@@ -102,7 +109,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader i
                 this.finishRefresh();
             } catch (BeansException var10) {
                 ...
-            } finally { ... }
+            } finally {
+                ...
+            }
         }
     }
     protected void finishRefresh() {
@@ -117,11 +126,15 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
     private class ContextRefreshListener implements ApplicationListener<ContextRefreshedEvent> {
         ...
         //WebApplicationContext刷新结束事件触发该监听器
-        public void onApplicationEvent(ContextRefreshedEvent event) { FrameworkServlet.this.onApplicationEvent(event); }
+        public void onApplicationEvent(ContextRefreshedEvent event) {
+            FrameworkServlet.this.onApplicationEvent(event);
+        }
     }
     public void onApplicationEvent(ContextRefreshedEvent event) {
         this.refreshEventReceived = true;
-        synchronized(this.onRefreshMonitor) { this.onRefresh(event.getApplicationContext()); }
+        synchronized(this.onRefreshMonitor) {
+            this.onRefresh(event.getApplicationContext());
+        }
     }
     protected void onRefresh(ApplicationContext context) {}
     ...
@@ -132,9 +145,9 @@ public class DispatcherServlet extends FrameworkServlet {
         this.initStrategies(context);
     }
     protected void initStrategies(ApplicationContext context) {
-        this.initMultipartResolver(context); //文件上传解析器
-        this.initLocaleResolver(context); //语言本地化解析器
-        this.initThemeResolver(context); //动态样式解析器
+        this.initMultipartResolver(context);
+        this.initLocaleResolver(context);
+        this.initThemeResolver(context);
         this.initHandlerMappings(context);
         this.initHandlerAdapters(context);
         this.initHandlerExceptionResolvers(context);
@@ -151,15 +164,18 @@ HandlerMappings的初始化(initHandlerMappings(context))：
 public class DispatcherServlet extends FrameworkServlet {
     private void initHandlerMappings(ApplicationContext context) {
         this.handlerMappings = null;
+        
         //springmvc会加载所有实现了HandlerMapping接口的bean，并进行排序。
         if (this.detectAllHandlerMappings) {
             //配置文件中的<mvc:annotation-driven></mvc:annotation-driven>标签，会创建RequestMappingHandlerMapping的bean，并在此时被扫描到
             Map<String, HandlerMapping> matchingBeans = BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
+            
             if (!matchingBeans.isEmpty()) {
                 this.handlerMappings = new ArrayList(matchingBeans.values());
                 AnnotationAwareOrderComparator.sort(this.handlerMappings);
             }
-        } else { //将detectAllHandlerMappings设置为false，springmvc将只加载名为HandlerMapping的bean
+        } else {
+            //将detectAllHandlerMappings设置为false，springmvc将只加载名为HandlerMapping的bean
             try {
                 HandlerMapping hm = (HandlerMapping)context.getBean("handlerMapping", HandlerMapping.class);
                 this.handlerMappings = Collections.singletonList(hm);
@@ -227,7 +243,10 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
         try {
             //获取bean的类型
             beanType = this.obtainApplicationContext().getType(beanName);
-        } catch (Throwable var4) { ... }
+        } catch (Throwable var4) {
+            ...
+        }
+        
         //如果bean的类型是handler，则进一步解析
         if (beanType != null && this.isHandler(beanType)) {
             this.detectHandlerMethods(beanName);
@@ -247,7 +266,9 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
             Map<Method, T> methods = MethodIntrospector.selectMethods(userType, (method) -> {
                 try {
                     return this.getMappingForMethod(method, userType);
-                } catch (Throwable var4) { ... }
+                } catch (Throwable var4) {
+                    ...
+                }
             });
             ...
 
@@ -257,7 +278,6 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
                 this.registerHandlerMethod(handler, invocableMethod, mapping);
             });
         }
-
     }
     
     //获取类中的所有含有@RequestMapping注解的方法，由子类RequestMappingHandlerMapping实现
