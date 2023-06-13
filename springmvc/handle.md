@@ -1,10 +1,11 @@
 
 DispatcherServlet处理请求的入口为void service(HttpServletRequest req, HttpServletResponse resp)方法，但DispatcherServlet并未重写该方法，所以实际调用的是其父类FrameworkServlet中的方法：
-```java {.line-numbers}
+```java
 public abstract class FrameworkServlet extends HttpServletBean implements ApplicationContextAware {
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpMethod httpMethod = HttpMethod.resolve(request.getMethod());
         if (httpMethod != HttpMethod.PATCH && httpMethod != null) {
+            
             //请求正确的情况下，虽然跳转到了父类，但只是根据请求方式调用this.doGet、this.doPost等方法，而这些方法又被FrameworkServlet重写，所以还是跳转到FrameworkServlet中的doGet、doPost等方法
             //而FrameworkServlet中的doGet、doPost等方法，只是简单的调用了this.processRequest(request, response)
             super.service(request, response);
@@ -30,68 +31,52 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 
 public class DispatcherServlet extends FrameworkServlet {
     protected void doService(HttpServletRequest request, HttpServletResponse response) throws Exception {
-        //进行一些配置后，进一步跳转
         ...
         try {
+            //配置完一些属性后，进一步跳转
             this.doDispatch(request, response);
-        } finally {
-            if (!WebAsyncUtils.getAsyncManager(request).isConcurrentHandlingStarted() && attributesSnapshot != null) {
-                this.restoreAttributesAfterInclude(request, attributesSnapshot);
-            }
-            if (this.parseRequestPath) {
-                ServletRequestPathUtils.setParsedRequestPath(previousRequestPath, request);
-            }
-        }
+        } finally { ... }
     }
     
     protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
         ...
         try {
             try {
-                ModelAndView mv = null;
-                Exception dispatchException = null;
+                ...
                 try {
+                    //判断是否为文件上传
                     processedRequest = this.checkMultipart(request);
+                    
                     multipartRequestParsed = processedRequest != request;
                     //获取能处理该请求的handler
                     mappedHandler = this.getHandler(processedRequest);
-                    if (mappedHandler == null) {
-                        this.noHandlerFound(processedRequest, response);
-                        return;
-                    }
+                    ...
 
+                    //适配器模式，获取HandlerAdapter
                     HandlerAdapter ha = this.getHandlerAdapter(mappedHandler.getHandler());
-                    String method = request.getMethod();
-                    boolean isGet = HttpMethod.GET.matches(method);
-                    if (isGet || HttpMethod.HEAD.matches(method)) {
-                        long lastModified = ha.getLastModified(request, mappedHandler.getHandler());
-                        if ((new ServletWebRequest(request, response)).checkNotModified(lastModified) && isGet) {
-                            return;
-                        }
-                    }
+                    ...
 
-                    if (!mappedHandler.applyPreHandle(processedRequest, response)) {
-                        return;
-                    }
+                    //执行预处理
+                    if (!mappedHandler.applyPreHandle(processedRequest, response)) { return; }
 
+                    //执行handler方法
                     mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
-                    if (asyncManager.isConcurrentHandlingStarted()) {
-                        return;
-                    }
+                    ...
 
+                    //执行后处理
                     this.applyDefaultViewName(processedRequest, mv);
                     mappedHandler.applyPostHandle(processedRequest, response, mv);
                 } catch (Exception var20) {
-                    dispatchException = var20;
+                    ...
                 } catch (Throwable var21) {
-                    dispatchException = new NestedServletException("Handler dispatch failed", var21);
+                    ...
                 }
 
                 this.processDispatchResult(processedRequest, response, mappedHandler, mv, (Exception)dispatchException);
             } catch (Exception var22) {
-                this.triggerAfterCompletion(processedRequest, response, mappedHandler, var22);
+                ...
             } catch (Throwable var23) {
-                this.triggerAfterCompletion(processedRequest, response, mappedHandler, new NestedServletException("Handler processing failed", var23));
+                ...
             }
 
         } finally {
@@ -110,8 +95,10 @@ public class DispatcherServlet extends FrameworkServlet {
         if (this.handlerMappings != null) {
             //获取所有的HandlerMapping
             Iterator var2 = this.handlerMappings.iterator();
+            
             while(var2.hasNext()) {
                 HandlerMapping mapping = (HandlerMapping)var2.next();
+                
                 //根据HandlerMapping获取handler，比如RequestMappingHandlerMapping
                 HandlerExecutionChain handler = mapping.getHandler(request);
                 if (handler != null) { return handler; }
