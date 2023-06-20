@@ -52,18 +52,18 @@ public class DispatcherServlet extends FrameworkServlet {
                     mappedHandler = this.getHandler(processedRequest);
                     ...
 
-                    //适配器模式，获取HandlerAdapter
+                    //适配器模式，mappedHandler.getHandler()返回值是Object，而handler有可能定义在类或者方法上，这种设计模式是为了解决实际的多态转换
                     HandlerAdapter ha = this.getHandlerAdapter(mappedHandler.getHandler());
                     ...
 
-                    //执行预处理
+                    //执行预处理(拦截器)
                     if (!mappedHandler.applyPreHandle(processedRequest, response)) { return; }
 
                     //执行handler方法
                     mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
                     ...
 
-                    //执行后处理
+                    //执行后处理(拦截器)
                     this.applyDefaultViewName(processedRequest, mv);
                     mappedHandler.applyPostHandle(processedRequest, response, mv);
                 } catch (Exception var20) {
@@ -105,8 +105,7 @@ public class DispatcherServlet extends FrameworkServlet {
         }
         return null;
     }
-
-    
+    ...
 }
 ```
 以RequestMappingHandlerMapping的getHandler为例：
@@ -117,6 +116,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
         ...
     }
     protected abstract Object getHandlerInternal(HttpServletRequest request) throws Exception;
+    ...
 }
 
 public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMethodMapping<RequestMappingInfo> {
@@ -129,6 +129,7 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
         }
         return var2;
     }
+    ...
 }
 
 public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMapping implements InitializingBean {
@@ -155,6 +156,102 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
     public List<T> getMappingsByDirectPath(String urlPath) {
         //map集合的get方法
         return (List)this.pathLookup.get(urlPath);
+    }
+    ...
+}
+```
+通过适配器模式获取到对应的HandlerAdapter后，会通过HandlerAdapter的handle方法，来执行我们所编写的处理请求的方法：
+```java
+public abstract class AbstractHandlerMethodAdapter extends WebContentGenerator implements HandlerAdapter, Ordered {
+    public final ModelAndView handle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        return this.handleInternal(request, response, (HandlerMethod)handler);
+    }
+    protected abstract ModelAndView handleInternal(HttpServletRequest request, HttpServletResponse response, HandlerMethod handlerMethod) throws Exception;
+}
+
+public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter implements BeanFactoryAware, InitializingBean {
+    protected ModelAndView handleInternal(HttpServletRequest request, HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
+        this.checkRequest(request);
+        ModelAndView mav;
+        
+        //是否对多个请求同步Session
+        if (this.synchronizeOnSession) {
+            HttpSession session = request.getSession(false);
+            if (session != null) {
+                Object mutex = WebUtils.getSessionMutex(session);
+                synchronized(mutex) {
+                    mav = this.invokeHandlerMethod(request, response, handlerMethod);
+                }
+            } else {
+                mav = this.invokeHandlerMethod(request, response, handlerMethod);
+            }
+        } else {
+            mav = this.invokeHandlerMethod(request, response, handlerMethod);
+        }
+
+        if (!response.containsHeader("Cache-Control")) {
+            if (this.getSessionAttributesHandler(handlerMethod).hasSessionAttributes()) {
+                this.applyCacheSeconds(response, this.cacheSecondsForSessionAttributeHandlers);
+            } else {
+                this.prepareResponse(response);
+            }
+        }
+
+        return mav;
+    }
+    protected ModelAndView invokeHandlerMethod(HttpServletRequest request, HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
+        ServletWebRequest webRequest = new ServletWebRequest(request, response);
+
+        ModelAndView var15;
+        try {
+            WebDataBinderFactory binderFactory = this.getDataBinderFactory(handlerMethod);
+            ModelFactory modelFactory = this.getModelFactory(handlerMethod, binderFactory);
+            ServletInvocableHandlerMethod invocableMethod = this.createInvocableHandlerMethod(handlerMethod);
+            if (this.argumentResolvers != null) {
+                invocableMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);
+            }
+
+            if (this.returnValueHandlers != null) {
+                invocableMethod.setHandlerMethodReturnValueHandlers(this.returnValueHandlers);
+            }
+
+            invocableMethod.setDataBinderFactory(binderFactory);
+            invocableMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
+            ModelAndViewContainer mavContainer = new ModelAndViewContainer();
+            mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));
+            modelFactory.initModel(webRequest, mavContainer, invocableMethod);
+            mavContainer.setIgnoreDefaultModelOnRedirect(this.ignoreDefaultModelOnRedirect);
+            AsyncWebRequest asyncWebRequest = WebAsyncUtils.createAsyncWebRequest(request, response);
+            asyncWebRequest.setTimeout(this.asyncRequestTimeout);
+            WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+            asyncManager.setTaskExecutor(this.taskExecutor);
+            asyncManager.setAsyncWebRequest(asyncWebRequest);
+            asyncManager.registerCallableInterceptors(this.callableInterceptors);
+            asyncManager.registerDeferredResultInterceptors(this.deferredResultInterceptors);
+            Object result;
+            if (asyncManager.hasConcurrentResult()) {
+                result = asyncManager.getConcurrentResult();
+                mavContainer = (ModelAndViewContainer)asyncManager.getConcurrentResultContext()[0];
+                asyncManager.clearConcurrentResult();
+                LogFormatUtils.traceDebug(this.logger, (traceOn) -> {
+                    String formatted = LogFormatUtils.formatValue(result, !traceOn);
+                    return "Resume with async result [" + formatted + "]";
+                });
+                invocableMethod = invocableMethod.wrapConcurrentResult(result);
+            }
+
+            invocableMethod.invokeAndHandle(webRequest, mavContainer, new Object[0]);
+            if (asyncManager.isConcurrentHandlingStarted()) {
+                result = null;
+                return (ModelAndView)result;
+            }
+
+            var15 = this.getModelAndView(mavContainer, modelFactory, webRequest);
+        } finally {
+            webRequest.requestCompleted();
+        }
+
+        return var15;
     }
 }
 ```
