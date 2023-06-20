@@ -71,7 +71,6 @@ public class DispatcherServlet extends FrameworkServlet {
                 } catch (Throwable var21) {
                     ...
                 }
-
                 this.processDispatchResult(processedRequest, response, mappedHandler, mv, (Exception)dispatchException);
             } catch (Exception var22) {
                 ...
@@ -108,5 +107,54 @@ public class DispatcherServlet extends FrameworkServlet {
     }
 
     
+}
+```
+以RequestMappingHandlerMapping的getHandler为例：
+```java
+public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport implements HandlerMapping, Ordered, BeanNameAware {
+    public final HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
+        Object handler = this.getHandlerInternal(request);
+        ...
+    }
+    protected abstract Object getHandlerInternal(HttpServletRequest request) throws Exception;
+}
+
+public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMethodMapping<RequestMappingInfo> {
+    protected HandlerMethod getHandlerInternal(HttpServletRequest request) throws Exception {
+        ...
+        try {
+            var2 = super.getHandlerInternal(request);
+        } finally {
+            ...
+        }
+        return var2;
+    }
+}
+
+public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMapping implements InitializingBean {
+    protected HandlerMethod getHandlerInternal(HttpServletRequest request) throws Exception {
+        //获取请求路径
+        String lookupPath = this.initLookupPath(request);
+        ...
+        
+        try {
+            //根据路径查找handler
+            HandlerMethod handlerMethod = this.lookupHandlerMethod(lookupPath, request);
+            var4 = handlerMethod != null ? handlerMethod.createWithResolvedBean() : null;
+        } finally {
+            this.mappingRegistry.releaseReadLock();
+        }
+        return var4;
+    }
+    protected HandlerMethod lookupHandlerMethod(String lookupPath, HttpServletRequest request) throws Exception {
+        List<AbstractHandlerMethodMapping<T>.Match> matches = new ArrayList();
+        //从mappingRegistry中查找路径对应的handler
+        List<T> directPathMatches = this.mappingRegistry.getMappingsByDirectPath(lookupPath);
+        ...
+    }
+    public List<T> getMappingsByDirectPath(String urlPath) {
+        //map集合的get方法
+        return (List)this.pathLookup.get(urlPath);
+    }
 }
 ```
