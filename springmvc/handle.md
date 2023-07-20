@@ -192,10 +192,12 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter i
         try {
             //获取添加了@InitBinder注解的方法，用于处理参数类型转换(string->非基本类型)
             WebDataBinderFactory binderFactory = this.getDataBinderFactory(handlerMethod);
+
             //获取Model对象，生命周期是一次请求，与之相关的注解有@SessionAttributes、@ModelAttribute等
             ModelFactory modelFactory = this.getModelFactory(handlerMethod, binderFactory);
 
             ServletInvocableHandlerMethod invocableMethod = this.createInvocableHandlerMethod(handlerMethod);
+
             //设置参数解析器
             if (this.argumentResolvers != null) {
                 invocableMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);
